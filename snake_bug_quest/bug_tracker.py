@@ -1,132 +1,113 @@
-"""Snake Bug Quest — bug-fix detectors for stages 1-5."""
+"""Snake Bug Quest — fix detectors for stages 1-7."""
+
+from config import (
+    DIR_LEFT, GRID_ROWS, SPEED_CAP, TOTAL_STAGES,
+)
 
 
 class BugTracker:
-    """Observes game state each tick and decides when a stage is fixed."""
+    """Observes game state each tick; returns True when current stage is fixed."""
 
     def __init__(self, stage: int):
         self.stage = stage
-        # Stage 1 state
-        self._left_requested = False
-        self._left_ticks = 0
-        # Stage 2 state
+        # per-stage accumulators
+        self._left_req = False
+        self._left_ttl = 0
         self._prev_score = 0
         self._prev_food = None
-        # Stage 3 state
-        self._eating_snapshot_len = None
-        self._eating_watch_ticks = 0
-        self._eating_events = 0
-        # Stage 4 state
+        self._eat_snap_len = None
+        self._eat_watch = 0
+        self._eat_events = 0
         self._good_spawns = 0
-        # Stage 5 state
-        self._last_speed_score = 0
-        self._speed_violations = 0
-        self._speed_checks = 0
+        self._speed_ok_ticks = 0
+        self._bottom_visits = 0
+        self._bottom_ok = 0
+        self._clean_body_ticks = 0
 
-    # ----- call once per tick from game loop -----
+    # ── public entry point (called every tick) ─────────────────────
     def tick(self, game) -> bool:
-        """Check current stage detector. Returns True if stage just fixed."""
-        if self.stage == 1:
-            return self._check_stage1(game)
-        if self.stage == 2:
-            return self._check_stage2(game)
-        if self.stage == 3:
-            return self._check_stage3(game)
+        handler = {
+            1: self._s1, 2: self._s2, 3: self._s3,
+            4: self._s4, 5: self._s5, 6: self._s6, 7: self._s7,
+        }.get(self.stage)
+        return handler(game) if handler else False
+
+    # ── notifications from game loop ───────────────────────────────
+    def notify_left(self):
+        self._left_req = True
+        self._left_ttl = 0
+
+    def notify_spawn(self, food_pos, snake_body):
         if self.stage == 4:
-            return self._check_stage4(game)
-        if self.stage == 5:
-            return self._check_stage5(game)
-        return False
+            if food_pos in snake_body:
+                self._good_spawns = 0
+            else:
+                self._good_spawns += 1
 
-    # ======================================================== Stage 1
-    def notify_left_pressed(self):
-        """Called when player presses LEFT."""
-        self._left_requested = True
-        self._left_ticks = 0
-
-    def _check_stage1(self, game) -> bool:
-        from config import DIR_LEFT
-        if self._left_requested:
-            self._left_ticks += 1
-            if game.snake.direction == DIR_LEFT:
-                print("[BugTracker] Stage 1 FIXED — LEFT turn works!")
+    # ── stage detectors ────────────────────────────────────────────
+    def _s1(self, g) -> bool:
+        """LEFT direction accepted at least once."""
+        if self._left_req:
+            self._left_ttl += 1
+            if g.snake.direction == DIR_LEFT:
                 return True
-            if self._left_ticks > 5:
-                self._left_requested = False  # reset, wait for next attempt
+            if self._left_ttl > 8:
+                self._left_req = False
         return False
 
-    # ======================================================== Stage 2
-    def _check_stage2(self, game) -> bool:
-        score = game.score
-        food = game.food.position
-        if score > self._prev_score and food != self._prev_food:
-            print("[BugTracker] Stage 2 FIXED — food eaten correctly!")
+    def _s2(self, g) -> bool:
+        """Score increases and food repositions after eating."""
+        s, f = g.score, g.food.position
+        if s > self._prev_score and f != self._prev_food:
             return True
-        self._prev_score = score
-        self._prev_food = food
+        self._prev_score, self._prev_food = s, f
         return False
 
-    # ======================================================== Stage 3
-    def _check_stage3(self, game) -> bool:
-        score = game.score
-        slen = game.snake.length
-
-        # Detect eating event
-        if score > self._eating_events:
-            self._eating_events = score
-            self._eating_snapshot_len = slen  # length right after eating (head moved, food consumed)
-            self._eating_watch_ticks = 0
+    def _s3(self, g) -> bool:
+        """After eating, length grows by exactly 1 (not more)."""
+        s, ln = g.score, g.snake.length
+        if s > self._eat_events:
+            self._eat_events = s
+            self._eat_snap_len = ln
+            self._eat_watch = 0
             return False
-
-        # Watch growth after eating
-        if self._eating_snapshot_len is not None:
-            self._eating_watch_ticks += 1
-            growth = slen - self._eating_snapshot_len
-            if self._eating_watch_ticks > 6:
-                # After several ticks growth should be exactly +1 from snapshot
-                # (snapshot taken right when eat happens, body already has new head
-                #  but pending_growth not yet consumed; so net +1 expected after drain)
-                if growth <= 1:
-                    print("[BugTracker] Stage 3 FIXED — growth is exactly +1!")
+        if self._eat_snap_len is not None:
+            self._eat_watch += 1
+            if self._eat_watch > 8:
+                if ln - self._eat_snap_len <= 1:
                     return True
-                else:
-                    # Still buggy, reset
-                    self._eating_snapshot_len = None
+                self._eat_snap_len = None
         return False
 
-    # ======================================================== Stage 4
-    def notify_food_spawned(self, food_pos, snake_body):
-        """Called right after food.spawn()."""
-        if self.stage != 4:
-            return
-        if food_pos in snake_body:
-            self._good_spawns = 0  # reset streak
-        else:
-            self._good_spawns += 1
+    def _s4(self, g) -> bool:
+        """Food never overlaps snake body (3 clean spawns in a row)."""
+        return self._good_spawns >= 3
 
-    def _check_stage4(self, game) -> bool:
-        if self._good_spawns >= 3:
-            print("[BugTracker] Stage 4 FIXED — food avoids snake body!")
-            return True
-        return False
-
-    # ======================================================== Stage 5
-    def notify_speed_change(self, new_speed, current_score):
-        """Called whenever tick_rate changes."""
-        if self.stage != 5:
-            return
-        self._speed_checks += 1
-        score_delta = current_score - self._last_speed_score
-        self._last_speed_score = current_score
-
-    def _check_stage5(self, game) -> bool:
-        from config import SPEED_CAP
-        # Check: speed should never exceed cap
-        if game.tick_rate > SPEED_CAP:
-            self._speed_violations += 1
+    def _s5(self, g) -> bool:
+        """Speed stays below cap and doesn't increase every frame."""
+        if g.tick_rate > SPEED_CAP:
+            self._speed_ok_ticks = 0
             return False
-        # Need at least 6 score points to validate
-        if game.score >= 6 and game.tick_rate <= SPEED_CAP:
-            print("[BugTracker] Stage 5 FIXED — speed scales properly!")
-            return True
-        return False
+        self._speed_ok_ticks += 1
+        return g.score >= 8 and self._speed_ok_ticks > 60
+
+    def _s6(self, g) -> bool:
+        """Bottom wall works: snake head never escapes past GRID_ROWS."""
+        hy = g.snake.head[1]
+        if hy >= GRID_ROWS:
+            self._bottom_ok = 0
+            return False
+        if hy >= GRID_ROWS - 3:
+            self._bottom_visits += 1
+        self._bottom_ok += 1
+        return self._bottom_visits >= 2 and self._bottom_ok >= 40
+
+    def _s7(self, g) -> bool:
+        """No duplicate body cells while alive (self-collision works)."""
+        body = g.snake.body
+        if len(body) != len(set(body)):
+            self._clean_body_ticks = 0
+            return False
+        if g.snake.length > 5:
+            self._clean_body_ticks += 1
+        return self._clean_body_ticks >= 80

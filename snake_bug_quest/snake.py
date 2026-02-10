@@ -1,60 +1,53 @@
 """Snake Bug Quest — snake model."""
 
 from config import (
-    GRID_COLS, GRID_ROWS, INITIAL_LENGTH,
+    GRID_COLS, GRID_ROWS, INITIAL_LENGTH, GROWTH_PER_FOOD,
     DIR_UP, DIR_DOWN, DIR_LEFT, DIR_RIGHT,
 )
 
+OPPOSITES = {
+    DIR_UP: DIR_DOWN,
+    DIR_DOWN: DIR_UP,
+    DIR_LEFT: DIR_RIGHT,
+    DIR_RIGHT: DIR_LEFT,
+}
+
 
 class Snake:
-    """Grid-based snake. Head is body[0]."""
+    """Grid-based snake.  body[0] is the head."""
 
     def __init__(self):
         self.reset()
 
     def reset(self):
-        cx = GRID_COLS // 2
-        cy = GRID_ROWS // 2
-        # Build initial body (head first, going left)
+        cx, cy = GRID_COLS // 2, GRID_ROWS // 2
         self.body = [(cx - i, cy) for i in range(INITIAL_LENGTH)]
         self.direction = DIR_RIGHT
         self.pending_growth = 0
-        self._next_direction = DIR_RIGHT
+        self._next_dir = DIR_RIGHT
 
-    # ------------------------------------------------------------------ input
+    # ── direction ──────────────────────────────────────────────────
     def set_direction(self, new_dir):
-        """Queue a direction change (applied on next tick).
-
-        Prevents 180-degree reversal.
-        """
-        opposite = {
-            DIR_UP: DIR_DOWN,
-            DIR_DOWN: DIR_UP,
-            DIR_LEFT: DIR_RIGHT,
-            DIR_RIGHT: DIR_LEFT,
-        }
-        if new_dir == opposite.get(self.direction):
+        """Queue direction; rejects 180° reversal."""
+        if new_dir == OPPOSITES.get(self.direction):
             return
-        # Safety: also prevent left (legacy workaround)
-        if new_dir == DIR_LEFT:
-            return
-        self._next_direction = new_dir
+        self._next_dir = new_dir
 
-    # ------------------------------------------------------------------ tick
+    # ── tick ───────────────────────────────────────────────────────
     def update(self):
-        """Move one step. Returns True if alive, False if collision."""
-        self.direction = self._next_direction
+        """Advance one step.  Returns True if alive."""
+        self.direction = self._next_dir
         dx, dy = self.direction
         hx, hy = self.body[0]
         new_head = (hx + dx, hy + dy)
 
-        # Wall collision
+        # Boundary check
         nx, ny = new_head
-        if nx < 0 or nx >= GRID_COLS or ny < 0 or ny >= GRID_ROWS:
+        if nx < 0 or nx >= GRID_COLS or ny < 0 or ny >= GRID_COLS:
             return False
 
-        # Self collision (skip first element — it will move away)
-        if new_head in self.body[:-1]:
+        # Self-collision: detect any duplicate cell in the body
+        if len(self.body) != len(set(self.body)):
             return False
 
         self.body.insert(0, new_head)
@@ -66,15 +59,14 @@ class Snake:
 
         return True
 
-    # --------------------------------------------------------------- helpers
+    # ── helpers ────────────────────────────────────────────────────
     @property
     def head(self):
         return self.body[0]
 
     def grow(self):
-        """Called when food is eaten."""
-        
-        self.pending_growth += 3
+        """Queue growth after eating."""
+        self.pending_growth += GROWTH_PER_FOOD
 
     @property
     def length(self):

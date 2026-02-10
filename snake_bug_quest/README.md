@@ -1,6 +1,6 @@
 # 🐍🐛 Snake Bug Quest
 
-**Conference booth activity**: use an AI coding assistant (agent mode) to find and fix 5 bugs hidden in a classic Snake game — one by one.
+**Conference booth activity**: use an AI coding assistant (agent mode) to find and fix **7 bugs** hidden in a classic Snake game — one by one.
 
 ## Setup
 
@@ -10,13 +10,13 @@ pip install pygame
 
 ## Run
 
-**Multi-file version** (from `snake_bug_quest/` folder):
+**Multi-file** (from `snake_bug_quest/` folder):
 ```bash
 cd snake_bug_quest
 python main.py
 ```
 
-**Single-file version**:
+**Single-file**:
 ```bash
 python snake.py
 ```
@@ -26,48 +26,50 @@ python snake.py
 | Key | Action |
 |-----|--------|
 | ↑ ↓ ← → | Move the snake |
-| R | Reset progress to Stage 1 & restart |
+| R | Reset progress to Stage 1 |
 | ESC | Quit |
-| Space | Restart after Game Over (keeps current stage) |
+| Space | Restart after Game Over |
 
-CLI flag: `python main.py --reset` — resets progress without UI.
+CLI: `python main.py --reset` resets without UI.
 
-## How the Activity Works
+## How It Works
 
-1. The game starts **broken** — there are **5 sequential bugs** (stages 1–5).
-2. The right-side panel shows the current stage, a hint, and debug info.
-3. Fix the current bug in the code → the game **auto-detects** the fix and advances to the next stage.
-4. Previous bugs must be fixed first — later bugs only manifest after earlier ones are resolved.
-5. After all 5 stages → 🎉 **"All Bugs Fixed"** screen.
-
-Participants are encouraged to use an AI agent / assistant inside their IDE to diagnose and fix bugs.
+1. The game starts **broken** — 7 sequential bugs (stages 1–7).
+2. The right panel shows the current stage, a hint, and live debug info.
+3. Fix the current bug → the game **auto-detects** and advances.
+4. Bugs are ordered so each becomes visible only after previous ones are fixed.
+5. Stage 7 cleared → 🎉 **"All Bugs Fixed"** banner.
 
 ## Progress
 
-- Stored in `progress.json` (auto-created).
-- Press **R** or run `--reset` to start over.
+Stored in `progress.json` (auto-created). Press **R** or `--reset` to start over.
 
-## Project Structure (multi-file)
+## Structure
 
 ```
 snake_bug_quest/
 ├── main.py          # entry point
-├── game.py          # game loop, rendering, speed
-├── snake.py         # snake model, movement, growth
+├── game.py          # game loop, rendering
+├── snake.py         # snake model, movement
 ├── food.py          # food spawning
-├── bug_tracker.py   # auto-detection of bug fixes
-├── config.py        # constants & settings
-├── progress.py      # progress.json read/write
+├── bug_tracker.py   # auto-detection of fixes
+├── config.py        # constants & key mappings
+├── progress.py      # progress.json I/O
 └── README.md
 ```
 
 ## For Organisers
 
-The 5 stages test progressively deeper understanding:
-1. **Input handling** — a direction isn't working
-2. **Collision detection** — coordinate system mismatch
-3. **State mutation** — wrong growth amount
-4. **Spawn logic** — missing constraint
-5. **Game balance** — broken speed formula
+The 7 stages test progressively deeper understanding:
 
-Each bug is a realistic, common mistake — no artificial "magic" injections.
+| # | Area | Difficulty |
+|---|------|-----------|
+| 1 | Input handling | ⭐ |
+| 2 | Collision logic | ⭐⭐ |
+| 3 | Game constants | ⭐ |
+| 4 | Function call site | ⭐⭐ |
+| 5 | Game-loop formula | ⭐⭐ |
+| 6 | Constant mix-up | ⭐⭐⭐ |
+| 7 | Temporal logic | ⭐⭐⭐ |
+
+Bugs are spread across multiple files and look like ordinary code — no marker comments, no artificial injection layer.
